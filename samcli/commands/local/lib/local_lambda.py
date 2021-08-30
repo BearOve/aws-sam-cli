@@ -69,6 +69,7 @@ class LocalLambdaRunner:
         self.env_vars_values = env_vars_values or {}
         self.debug_context = debug_context
         self._boto3_session_creds: Optional[Dict[str, str]] = None
+        self._boto3_session_creds_loaded = False
         self._boto3_region: Optional[str] = None
         self.container_host = container_host
         self.container_host_interface = container_host_interface
@@ -265,7 +266,7 @@ class LocalLambdaRunner:
         )  # EnvironmentVariables is not yet annotated with type hints, disable mypy check for now. type: ignore
 
     def _get_session_creds(self) -> Credentials:
-        if self._boto3_session_creds is None:
+        if not self._boto3_session_creds_loaded:
             # to pass command line arguments for region & profile to setup boto3 default session
             LOG.debug("Loading AWS credentials from session with profile '%s'", self.aws_profile)
             # The signature of boto3.session.Session defines the default values of profile_name and region_name
@@ -282,6 +283,10 @@ class LocalLambdaRunner:
             # don't set cached session creds if there is not a session
             if session:
                 self._boto3_session_creds = session.get_credentials()
+
+            # Store the fact that loading the creds has already been attempted to avoid
+            # a big delay each time a warm lambda is executed.
+            self._boto3_session_creds_loaded = True
 
         return self._boto3_session_creds
 
